@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeePractice sound check</title>
+<style>
+  body { margin: 0; padding: 24px; font: 15px/1.5 system-ui, sans-serif; background: #fff6e3; color: #1c1508; }
+  main { max-width: 620px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: #6b5836; }
+  button { font: 600 17px system-ui, sans-serif; padding: 14px 20px; border: 3px solid #1c1508;
+           border-radius: 14px; background: #ffc42e; box-shadow: 0 4px 0 #1c1508; cursor: pointer; }
+  button:disabled { opacity: .5; }
+  pre { margin-top: 20px; padding: 14px; background: #fff; border: 2px solid #1c1508; border-radius: 10px;
+        white-space: pre-wrap; word-break: break-word; font: 12.5px/1.5 ui-monospace, Menlo, monospace; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>BeePractice sound check</h1>
+  <p class="sub">Keep this tab in front and your volume up, then press the button. It takes about 25 seconds.
+     Copy everything in the box afterwards.</p>
+  <div class="row">
+    <button id="run">Run the sound check</button>
+    <button id="copy" disabled>Copy results</button>
+  </div>
+  <pre id="out">Ready.</pre>
+</main>
+<script>
+const out = document.getElementById('out');
+const lines = [];
+function log(s) { lines.push(s); out.textContent = lines.join('\n'); }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function state() {
+  const s = speechSynthesis;
+  return `speaking=${s.speaking} pending=${s.pending} paused=${s.paused}`;
+}
+
+// Resolves with the events an utterance produced, or TIMEOUT.
+function trial(name, build, opts = {}) {
+  return new Promise(async (resolve) => {
+    speechSynthesis.cancel();
+    await sleep(opts.settle ?? 150);
+    const before = state();
+    const u = build();
+    const events = [];
+    const t0 = performance.now();
+    const stamp = (e) => `${e}@${Math.round(performance.now() - t0)}ms`;
+    let done = false;
+    const finish = (note) => {
+      if (done) return;
+      done = true;
+      log(`${name.padEnd(22)} ${note} | events: ${events.join(', ') || 'none'} | before: ${before}`);
+      resolve();
+    };
+    u.onstart = () => events.push(stamp('start'));
+    u.onend = () => { events.push(stamp('end')); finish('OK'); };
+    u.onerror = (e) => { events.push(stamp('error:' + e.error)); finish('ERROR ' + e.error); };
+    setTimeout(() => finish(events.some(e => e.startsWith('start')) ? 'STARTED-NO-END' : 'NEVER STARTED'), 4000);
+    if (opts.cancelFirst) speechSynthesis.cancel();
+    speechSynthesis.resume();
+    speechSynthesis.speak(u);
+  });
+}
+
+function pickVoice() {
+  const v = speechSynthesis.getVoices().filter(x => (x.lang || '').toLowerCase().startsWith('en'));
+  return v.find(x => /samantha/i.test(x.name)) || v.find(x => x.lang.toLowerCase() === 'en-US'.toLowerCase()) || v[0] || null;
+}
+
+async function beepTest() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    if (ctx.state === 'suspended') await ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0.12;
+    osc.frequency.value = 660;
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    await sleep(500);
+    osc.stop();
+    log(`web audio beep         played (context=${ctx.state}, sampleRate=${ctx.sampleRate})`);
+    await ctx.close();
+  } catch (err) {
+    log('web audio beep         FAILED ' + err);
+  }
+}
+
+document.getElementById('run').onclick = async (e) => {
+  e.target.disabled = true;
+  lines.length = 0;
+  out.textContent = '';
+
+  log('user agent: ' + navigator.userAgent);
+  const voices = speechSynthesis.getVoices();
+  log(`voices: ${voices.length} total, ${voices.filter(v => (v.lang||'').startsWith('en')).length} english`);
+  const chosen = pickVoice();
+  log('app would pick: ' + (chosen ? `${chosen.name} / ${chosen.lang} / ${chosen.localService ? 'local' : 'remote'}` : 'none'));
+  log('initial state: ' + state());
+  log('--- you should hear a short beep now ---');
+  await beepTest();
+  log('--- now six spoken tests; each should say "hello" ---');
+
+  await trial('1 bare', () => new SpeechSynthesisUtterance('hello'));
+  await trial('2 lang only', () => { const u = new SpeechSynthesisUtterance('hello'); u.lang = 'en-US'; return u; });
+  await trial('3 voice set', () => { const u = new SpeechSynthesisUtterance('hello'); const v = pickVoice(); if (v) u.voice = v; return u; });
+  await trial('4 rate 0.95', () => { const u = new SpeechSynthesisUtterance('hello'); u.rate = 0.95; return u; });
+  await trial('5 app combo', () => {
+    const u = new SpeechSynthesisUtterance('hello');
+    u.lang = 'en-US'; u.rate = 0.95; u.pitch = 1;
+    const v = pickVoice(); if (v) u.voice = v;
+    return u;
+  });
+  await trial('6 cancel then speak', () => new SpeechSynthesisUtterance('hello'), { cancelFirst: true, settle: 0 });
+
+  log('final state: ' + state());
+  log('--- done. Copy everything above. ---');
+  document.getElementById('copy').disabled = false;
+  e.target.disabled = false;
+};
+
+document.getElementById('copy').onclick = () => {
+  navigator.clipboard.writeText(lines.join('\n')).then(
+    () => { document.getElementById('copy').textContent = 'Copied'; },
+    () => { document.getElementById('copy').textContent = 'Select the text manually'; },
+  );
+};
+
+// Voices load asynchronously in Chrome.
+speechSynthesis.onvoiceschanged = () => {};
+speechSynthesis.getVoices();
+</script>
+</body>
+</html>
