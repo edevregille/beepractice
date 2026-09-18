@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { GRADE_LABELS, type Grade } from '../data/words'
 import { Hex, IconButton } from '../components/ui'
 import { ArrowRightIcon, KeyboardIcon, MicIcon } from '../components/icons'
-import { sessionLengths } from '../lib/session'
+import { defaultSessionLength, sessionLengths } from '../lib/session'
 import { voiceSupported } from '../lib/speech'
 import type { Mode } from '../lib/types'
 
@@ -17,7 +17,7 @@ export function ModeScreen({
 }) {
   const lengths = sessionLengths(grade)
   const [mode, setMode] = useState<Mode>('type')
-  const [length, setLength] = useState(lengths[0] ?? 10)
+  const [length, setLength] = useState(defaultSessionLength(grade))
 
   return (
     <div className="screen">
@@ -84,7 +84,7 @@ export function ModeScreen({
         <div className="d" style={{ fontSize: 20 }}>
           How many words?
         </div>
-        <div className="grid3">
+        <div className="grid4">
           {lengths.map((n) => (
             <button key={n} type="button" className="chip" data-selected={length === n} onClick={() => setLength(n)}>
               {n}

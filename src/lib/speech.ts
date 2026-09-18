@@ -4,22 +4,53 @@
 
 export const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-const GOOD_VOICES = /samantha|google us english|google uk english|karen|moira|aaron|allison|ava|joelle|nicky|zoe|daniel|alex\b/i
+/** American voices worth preferring, in rough order of quality. */
+const PREFERRED_US = /^(samantha|google us english|ava|allison|susan|zoe|nicky|aaron|alex)$/i
+
+/**
+ * macOS ships dozens of en-US novelty voices — Bad News, Zarvox, Bubbles and
+ * friends. They are American, and completely unusable for spelling practice.
+ */
+const NOVELTY =
+  /^(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|junior|kathy|organ|pipe organ|ralph|superstar|trinoids|whisper|wobble|zarvox|bruce|fred|agnes|princess|victoria|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|sinji)$/i
 
 let cached: SpeechSynthesisVoice | null = null
+
+type VoiceLike = { name: string; lang: string; localService?: boolean }
+
+function isAmerican(voice: VoiceLike): boolean {
+  return (voice.lang ?? '').toLowerCase().replace('_', '-') === 'en-us'
+}
+
+/**
+ * Picks an American voice. The words are read to children learning American
+ * spellings, so a British or Australian voice is the wrong teacher — and every
+ * Mac has several of both installed, alongside dozens of en-US novelty voices.
+ *
+ * Exported separately from `pickVoice` so the choice can be tested without a
+ * browser: `SpeechSynthesisVoice` cannot be constructed.
+ */
+export function chooseVoice<T extends VoiceLike>(voices: T[]): T | null {
+  const english = voices.filter((v) => (v.lang ?? '').toLowerCase().startsWith('en'))
+  const usable = english.filter((v) => isAmerican(v) && !NOVELTY.test(v.name.trim()))
+
+  return (
+    usable.find((v) => PREFERRED_US.test(v.name.trim())) ??
+    usable.find((v) => v.localService) ??
+    usable[0] ??
+    // No usable American voice — any plain English one beats a novelty voice.
+    english.find((v) => !NOVELTY.test(v.name.trim())) ??
+    english[0] ??
+    null
+  )
+}
 
 function pickVoice(): SpeechSynthesisVoice | null {
   if (!ttsSupported) return null
   if (cached) return cached
   const voices = window.speechSynthesis.getVoices()
   if (!voices.length) return null
-  const english = voices.filter((v) => v.lang?.toLowerCase().startsWith('en'))
-  cached =
-    english.find((v) => GOOD_VOICES.test(v.name)) ??
-    english.find((v) => v.lang.toLowerCase() === 'en-us' && v.localService) ??
-    english.find((v) => v.lang.toLowerCase() === 'en-us') ??
-    english[0] ??
-    null
+  cached = chooseVoice(voices)
   return cached
 }
 
@@ -71,7 +102,7 @@ export function cancelSpeech(): void {
  * Browsers do not start speech in a hidden tab — that is expected, not a
  * failure, so the checks are skipped while the page is not visible.
  */
-export function speak(text: string, rate = 0.95): void {
+export function speak(text: string, rate = 0.85): void {
   if (!ttsSupported || !text.trim()) return
   const synth = window.speechSynthesis
   clearWatchdog()
@@ -130,7 +161,7 @@ export function speak(text: string, rate = 0.95): void {
 }
 
 /** Reads a word one letter at a time, e.g. for "Show me". */
-export function speakLetters(word: string, rate = 0.7): void {
+export function speakLetters(word: string, rate = 0.6): void {
   speak(word.split('').join(', '), rate)
 }
 

@@ -21,8 +21,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outRoot = join(root, 'public', 'audio')
 const tmpRoot = join(root, 'node_modules', '.cache', 'beepractice-audio')
 
-const VOICE = 'Samantha'
-const RATE = { word: 165, sentence: 175, letter: 150 }
+const VOICE = 'Samantha' // en_US — the words are American spellings
+// Deliberately slower than the ~175 wpm default: these are read to children
+// who are writing each letter down as they listen.
+const RATE = { word: 145, sentence: 155, letter: 135 }
 const BITRATE = 40000
 const CONCURRENCY = 6
 const force = process.argv.includes('--force')

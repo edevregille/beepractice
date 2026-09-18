@@ -56,6 +56,16 @@ export function letterSrc(letter: string): string {
   return `${base}audio/letters/${letter}.m4a`
 }
 
+/**
+ * How fast to read. Children need words noticeably slower than a browser's
+ * default, and the two paths need different numbers to sound the same: the
+ * clips are already rendered slow, while the speech engine is not.
+ */
+export type Pace = 'normal' | 'slow'
+
+const FILE_RATE: Record<Pace, number> = { normal: 1, slow: 0.7 }
+const SPEECH_RATE: Record<Pace, number> = { normal: 0.8, slow: 0.55 }
+
 let current: HTMLAudioElement | null = null
 let generation = 0
 
@@ -103,29 +113,29 @@ function playFile(src: string, rate: number, token: number): Promise<void> {
   })
 }
 
-async function playOrSpeak(src: string, spoken: string, rate: number): Promise<void> {
+async function playOrSpeak(src: string, spoken: string, pace: Pace): Promise<void> {
   stopAudio()
   if (!useFiles()) {
-    speak(spoken, rate * 0.95)
+    speak(spoken, SPEECH_RATE[pace])
     return
   }
   const token = generation
   try {
-    await playFile(src, rate, token)
+    await playFile(src, FILE_RATE[pace], token)
     if (token === generation) reportSpeechStatus(true)
   } catch {
     // No file (a word added without regenerating audio) or playback refused.
-    speak(spoken, rate * 0.95)
+    speak(spoken, SPEECH_RATE[pace])
   }
 }
 
-export function playWord(grade: Grade, entry: WordEntry, rate = 1): Promise<void> {
-  return playOrSpeak(wordSrc(grade, entry.word), entry.word, rate)
+export function playWord(grade: Grade, entry: WordEntry, pace: Pace = 'normal'): Promise<void> {
+  return playOrSpeak(wordSrc(grade, entry.word), entry.word, pace)
 }
 
-export function playSentence(grade: Grade, entry: WordEntry): Promise<void> {
-  if (!entry.sentence) return playWord(grade, entry)
-  return playOrSpeak(sentenceSrc(grade, entry.word), entry.sentence, 1)
+export function playSentence(grade: Grade, entry: WordEntry, pace: Pace = 'normal'): Promise<void> {
+  if (!entry.sentence) return playWord(grade, entry, pace)
+  return playOrSpeak(sentenceSrc(grade, entry.word), entry.sentence, pace)
 }
 
 /** Reads a word out one letter at a time, for "Show me and move on". */
@@ -140,7 +150,7 @@ export async function spellOutWord(word: string, gap = 130): Promise<void> {
   try {
     for (const letter of letters) {
       if (token !== generation) return
-      await playFile(letterSrc(letter), 1, token)
+      await playFile(letterSrc(letter), FILE_RATE.normal, token)
       await delay(gap)
     }
     if (token === generation) reportSpeechStatus(true)

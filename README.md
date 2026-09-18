@@ -1,6 +1,6 @@
 # BeePractice
 
-Spelling and typing practice for grades 3-6. A kid hears a word, then either
+Spelling and typing practice for grades 1-6. A kid hears a word, then either
 types it or spells it out loud letter by letter, and earns points, streaks and
 stars. Mobile-first React, no backend — every student's progress lives in the
 browser's `localStorage`.
@@ -37,10 +37,14 @@ Everything lives in `src/data/words.ts`:
 
 ```ts
 export const WORD_LISTS: Record<Grade, WordEntry[]> = {
-  3: [{ word: 'illness', sentence: 'She missed school because of an illness.' }],
+  1: [{ word: 'mama', sentence: 'I gave mama a big hug.' }],
   ...
 }
 ```
+
+To add a grade, widen the `Grade` union and add it to `GRADES`, `GRADE_LABELS`
+and `WORD_LISTS`. `Record<Grade, …>` makes the compiler point at every other map
+that needs an entry (there are two, both in `GradeScreen.tsx`). All six grades hold 50 words.
 
 - `word` — what the student must spell. Capitalisation and accents are stored as
   written but ignored when checking, so `December` and `piñata` work as expected.
@@ -58,6 +62,8 @@ options adapt to the list size.
 - **Streak bonus** — +10 at 3 in a row, +15 at 5, +20 at 8. A wrong answer
   resets the streak.
 - **Stars** — first-try accuracy over the round: 90% = 3, 70% = 2, 50% = 1.
+- **Round length** — 5, 10, 15 or 20 words. Grades 1-2 default to 5, the rest to
+  10 (`defaultSessionLength` in `src/lib/session.ts`).
 - **Mastery** — a word counts as mastered after two first-try correct answers,
   and drops back out if it is later missed. New rounds put previously missed
   words first, then unmastered words, then mastered ones.
@@ -85,6 +91,24 @@ To try the other mode for one visit without rebuilding:
 ?audio=files    force the pre-rendered clips
 ```
 
+### Voice and pace
+
+Everything is read in an **American** voice. `chooseVoice` in `src/lib/speech.ts`
+takes only `en-US` voices and skips the dozens of en-US novelty voices macOS
+ships (Bad News, Zarvox, Bubbles...); a Mac has British and Australian voices
+installed too, and they are the wrong teacher for American spellings. The
+generated clips use `Samantha`, which is `en_US`.
+
+Words and example sentences are read **slower than the browser default**, since
+a child is writing each letter down while listening. Pace is a named level
+rather than a raw number, because the two paths need different values — the
+clips are rendered slow already, the speech engine is not:
+
+| | clip `playbackRate` | speech `rate` |
+| --- | --- | --- |
+| normal | 1 (rendered at 145 wpm) | 0.8 |
+| slow ("Say it slower") | 0.7 | 0.55 |
+
 ### Why the clips exist
 
 Chrome on macOS can stop speaking process-wide: it accepts an utterance, never
@@ -102,7 +126,7 @@ node scripts/generate-audio.mjs          # renders only what is missing
 node scripts/generate-audio.mjs --force  # rebuild every clip
 ```
 
-426 clips, ~4.6 MB. **They are gitignored**, so a fresh clone has none — run the
+626 clips, ~6.8 MB. **They are gitignored**, so a fresh clone has none — run the
 command above on a Mac to produce them. Nothing breaks without them: a word with
 no clip falls back to live speech automatically, which is also what a deploy does
 today. "Say it slower" reuses the same file via `playbackRate`, and "Show me"

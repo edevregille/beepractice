@@ -35,5 +35,10 @@ export function buildSession(profile: Profile, grade: Grade, length: number): Wo
 
 export function sessionLengths(grade: Grade): number[] {
   const total = wordsForGrade(grade).length
-  return [10, 15, 20].filter((n) => n <= Math.max(total, 10))
+  return [5, 10, 15, 20].filter((n) => n <= Math.max(total, 5))
+}
+
+/** The youngest grades start on a short round — ten words is a long sit at six. */
+export function defaultSessionLength(grade: Grade): number {
+  return grade <= 2 ? 5 : 10
 }

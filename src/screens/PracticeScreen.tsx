@@ -15,7 +15,7 @@ import {
 } from '../components/icons'
 import { POINTS_AFTER_RETRY, POINTS_FIRST_TRY, nextStreakTier, starsFor, streakBonus } from '../lib/scoring'
 import { createRecognizer, setSpeechStatusListener, voiceSupported, type Recognizer } from '../lib/speech'
-import { playSentence, playWord, preloadWords, spellOutWord, stopAudio } from '../lib/audio'
+import { playSentence, playWord, preloadWords, spellOutWord, stopAudio, type Pace } from '../lib/audio'
 import type { WordResult } from '../lib/storage'
 import type { Mode, SessionSummary } from '../lib/types'
 
@@ -83,7 +83,10 @@ export function PracticeScreen({
     void start().finally(() => setSpeaking(false))
   }, [])
 
-  const hearWord = useCallback((rate = 1) => play(() => playWord(grade, entry, rate)), [play, grade, entry])
+  const hearWord = useCallback(
+    (pace: Pace = 'normal') => play(() => playWord(grade, entry, pace)),
+    [play, grade, entry],
+  )
 
   // Warm the next couple of clips so each word starts the moment it is asked for.
   useEffect(() => {
@@ -466,7 +469,7 @@ export function PracticeScreen({
         {!revealed && (
           <>
             <div className="row" style={{ alignSelf: 'stretch', gap: 12 }}>
-              <button className="btn" type="button" style={{ width: 140, fontSize: 17, fontWeight: 700 }} onClick={() => hearWord(0.75)}>
+              <button className="btn" type="button" style={{ width: 140, fontSize: 17, fontWeight: 700 }} onClick={() => hearWord('slow')}>
                 <SpeakerIcon size={21} />
                 Hear it
               </button>
@@ -599,7 +602,7 @@ export function PracticeScreen({
           </div>
 
           <div className="grid2" style={{ marginTop: 4 }}>
-            <button className="btn small" type="button" onClick={() => hearWord(0.6)}>
+            <button className="btn small" type="button" onClick={() => hearWord('slow')}>
               <SlowIcon size={18} />
               Say it slower
             </button>

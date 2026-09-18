@@ -3,8 +3,8 @@ import { Hex, IconButton, PointsPill } from '../components/ui'
 import { TrophyIcon } from '../components/icons'
 import type { Profile } from '../lib/storage'
 
-const ORDINALS: Record<Grade, string> = { 3: 'rd', 4: 'th', 5: 'th', 6: 'th' }
-const TINTS: Record<Grade, string> = { 3: '#FFE9A8', 4: '#FFC42E', 5: '#FFD96B', 6: '#FFB05A' }
+const ORDINALS: Record<Grade, string> = { 1: 'st', 2: 'nd', 3: 'rd', 4: 'th', 5: 'th', 6: 'th' }
+const TINTS: Record<Grade, string> = { 1: '#FFF3D0', 2: '#FFE9A8', 3: '#FFDE8A', 4: '#FFD05A', 5: '#FFC42E', 6: '#FFA94D' }
 
 export function GradeScreen({
   profile,
@@ -34,16 +34,25 @@ export function GradeScreen({
       </div>
 
       <div className="grid2">
-        {GRADES.map((grade) => {
+        {GRADES.map((grade, i) => {
           const total = wordsForGrade(grade).length
           const mastered = profile.grades[grade].mastered.length
           const pct = total ? Math.round((mastered / total) * 100) : 0
+          // With an odd number of grades the last card would leave a ragged
+          // hole, so let it run the full width instead.
+          const orphan = GRADES.length % 2 === 1 && i === GRADES.length - 1
           return (
             <button
               key={grade}
               type="button"
               className="card-button"
-              style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, background: TINTS[grade] }}
+              style={{
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 10,
+                background: TINTS[grade],
+                gridColumn: orphan ? 'span 2' : undefined,
+              }}
               onClick={() => onPick(grade)}
               disabled={total === 0}
             >
